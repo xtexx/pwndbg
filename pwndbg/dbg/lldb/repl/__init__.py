@@ -936,8 +936,8 @@ def process_connect(driver: ProcessDriver, relay: EventRelay, args: List[str], d
         )
         return
 
-    if driver.has_process():
-        print(message.error("error: a process is already being debugged"))
+    if driver.has_connection():
+        print(message.error("error: debugger is already connected"))
         return
 
     target = dbg.debugger.GetSelectedTarget()
@@ -991,8 +991,9 @@ def process_connect(driver: ProcessDriver, relay: EventRelay, args: List[str], d
             ), "Could not delete the target we've just created. What?"
         return
 
-    # Tell the debugger that the process was suspended.
-    dbg._trigger_event(EventType.STOP)
+    # Tell the debugger that the process was suspended, if there is a process.
+    if driver.has_process():
+        dbg._trigger_event(EventType.STOP)
 
 
 gdb_remote_ap = argparse.ArgumentParser(add_help=False)
