@@ -124,8 +124,8 @@ ARM_CAN_WRITE_TO_PC_INSTRUCTIONS = {
 
 
 # This class enhances both ARM A-profile and ARM M-profile (Cortex-M)
-class DisassemblyAssistant(pwndbg.aglib.disasm.arch.DisassemblyAssistant):
-    def __init__(self, architecture: str, flags_reg: Literal["cpsr", "xpsr"]) -> None:
+class ArmDisassemblyAssistant(pwndbg.aglib.disasm.arch.DisassemblyAssistant):
+    def __init__(self, architecture, flags_reg: Literal["cpsr", "xpsr"]) -> None:
         super().__init__(architecture)
 
         self.flags_reg = flags_reg
@@ -385,8 +385,3 @@ class DisassemblyAssistant(pwndbg.aglib.disasm.arch.DisassemblyAssistant):
             )
 
         return target
-
-
-# Register the assistant for both ARM A-profile and ARM M-profile
-assistant = DisassemblyAssistant("arm", "cpsr")
-assistant = DisassemblyAssistant("armcm", "xpsr")

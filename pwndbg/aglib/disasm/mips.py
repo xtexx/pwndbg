@@ -192,8 +192,8 @@ MIPS_BINARY_OPERATIONS = {
 
 
 # This class enhances 32-bit, 64-bit, and micro MIPS
-class DisassemblyAssistant(pwndbg.aglib.disasm.arch.DisassemblyAssistant):
-    def __init__(self, architecture: str) -> None:
+class MipsDisassemblyAssistant(pwndbg.aglib.disasm.arch.DisassemblyAssistant):
+    def __init__(self, architecture) -> None:
         super().__init__(architecture)
 
         self.annotation_handlers: Dict[int, Callable[[PwndbgInstruction, Emulator], None]] = {
@@ -303,6 +303,3 @@ class DisassemblyAssistant(pwndbg.aglib.disasm.arch.DisassemblyAssistant):
         if base is None:
             return None
         return base + op.mem.disp
-
-
-assistant = DisassemblyAssistant("mips")

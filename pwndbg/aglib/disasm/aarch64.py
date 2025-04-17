@@ -241,8 +241,8 @@ def resolve_condition(condition: int, cpsr: int) -> InstructionCondition:
     return InstructionCondition.TRUE if condition else InstructionCondition.FALSE
 
 
-class DisassemblyAssistant(pwndbg.aglib.disasm.arch.DisassemblyAssistant):
-    def __init__(self, architecture: str) -> None:
+class AArch64DisassemblyAssistant(pwndbg.aglib.disasm.arch.DisassemblyAssistant):
+    def __init__(self, architecture) -> None:
         super().__init__(architecture)
 
         self.annotation_handlers: Dict[int, Callable[[PwndbgInstruction, Emulator], None]] = {
@@ -543,6 +543,3 @@ class DisassemblyAssistant(pwndbg.aglib.disasm.arch.DisassemblyAssistant):
                 target = target & ((1 << target_bit_width) - 1)
 
         return target
-
-
-assistant = DisassemblyAssistant("aarch64")

@@ -113,7 +113,7 @@ RISCV_EMULATED_ANNOTATIONS = {
 }
 
 
-class DisassemblyAssistant(pwndbg.aglib.disasm.arch.DisassemblyAssistant):
+class RISCVDisassemblyAssistant(pwndbg.aglib.disasm.arch.DisassemblyAssistant):
     def __init__(self, architecture) -> None:
         super().__init__(architecture)
         self.architecture = architecture
@@ -291,7 +291,3 @@ class DisassemblyAssistant(pwndbg.aglib.disasm.arch.DisassemblyAssistant):
         if base is None:
             return None
         return base + op.mem.disp
-
-
-assistant_rv32 = DisassemblyAssistant("rv32")
-assistant_rv64 = DisassemblyAssistant("rv64")

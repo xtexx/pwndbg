@@ -5,8 +5,7 @@ import argparse
 import gdb
 from capstone import CS_GRP_JUMP
 
-import pwndbg.aglib.disasm
-import pwndbg.aglib.disasm.arch
+import pwndbg.aglib.disasm.disassembly
 import pwndbg.color.message as message
 import pwndbg.commands
 import pwndbg.gdblib.bpoint
@@ -25,9 +24,10 @@ class BreakOnConditionalBranch(pwndbg.gdblib.bpoint.Breakpoint):
         self.taken = taken
 
     def should_stop(self):
-        # Use the assistant to figure out which if all the conditions this
-        # branch requires in order to be taken have been met.
-        assistant = pwndbg.aglib.disasm.arch.DisassemblyAssistant.for_current_arch()
+        # We need to re-run the enhancement process, since now the PC == instruction.address,
+        # where previously it was not. The enhancement process will figure out if all the conditions
+        # this branch requires in order to be taken have been met.
+        assistant = pwndbg.aglib.disasm.disassembly.get_disassembly_assistant_for_current_arch()
         assistant.enhance(self.instruction)
         condition_met = self.instruction.is_conditional_jump_taken
 
@@ -91,7 +91,7 @@ def install_breakpoint(branch, taken: bool) -> None:
             return
 
     # We should've picked something by now, or errored out.
-    instruction = pwndbg.aglib.disasm.one(address)
+    instruction = pwndbg.aglib.disasm.disassembly.one(address)
     if instruction is None:
         print(message.error(f"Could not decode instruction at address {address:#x}"))
         return
@@ -104,7 +104,7 @@ def install_breakpoint(branch, taken: bool) -> None:
         return
 
     # Not all architectures have assistants we can use for conditionals.
-    if pwndbg.aglib.disasm.arch.DisassemblyAssistant.for_current_arch() is None:
+    if not pwndbg.aglib.disasm.disassembly.arch_has_disassembly_assistant():
         print(
             message.error(
                 "The current architecture is not supported for breaking on conditional branches"
