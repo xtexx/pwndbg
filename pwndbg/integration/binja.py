@@ -87,6 +87,9 @@ def init_bn_rpc_client() -> None:
     if pwndbg.integration.provider_name.value != "binja":
         return
 
+    xmlrpc.client.MAXINT = 10**100  # type: ignore[misc]
+    xmlrpc.client.MININT = -(10**100)  # type: ignore[misc]
+
     now = time.time()
     if _bn is None and (now - _bn_last_connection_check) < int(bn_timeout) + 5:
         return
@@ -189,17 +192,11 @@ def can_connect() -> bool:
 
 
 def l2r(addr: int) -> int:
-    exe = pwndbg.aglib.elf.exe()
-    if not exe:
-        raise Exception("Can't find EXE base")
     result = (addr - pwndbg.aglib.proc.binary_base_addr + base()) & pwndbg.aglib.arch.ptrmask
     return result
 
 
 def r2l(addr: int) -> int:
-    exe = pwndbg.aglib.elf.exe()
-    if not exe:
-        raise Exception("Can't find EXE base")
     result = (addr - base() + pwndbg.aglib.proc.binary_base_addr) & pwndbg.aglib.arch.ptrmask
     return result
 
