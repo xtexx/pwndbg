@@ -93,8 +93,8 @@ computed_instruction_cache: DefaultDict[int, PwndbgInstruction] = collections.de
 )
 
 # Maps an address to integer 0/1, indicating the Thumb mode bit for the given address.
-# Value is None if Thumb bit irrelevent or unknown.
-emulated_arm_mode_cache: DefaultDict[int, int] = collections.defaultdict(lambda: None)
+# Value is None if Thumb bit is irrelevent or unknown.
+emulated_arm_mode_cache: DefaultDict[int, int | None] = collections.defaultdict(lambda: None)
 
 
 @pwndbg.lib.cache.cache_until("objfile")
@@ -381,6 +381,8 @@ def near(
     insn = current
     total_instructions = 1 + (2 * instructions)
 
+    last_emulated_thumb_bit_value: int | None = None
+
     while insn and len(insns) < total_instructions:
         target = insn.next if not linear else insn.address + insn.size
 
@@ -392,7 +394,14 @@ def near(
                 # Upon execution the previous instruction, the Thumb mode bit may have changed.
                 # This means we know whether the next instruction executed will be Thumb or not.
                 # This returns None in the case the Thumb bit is not relevent.
-                emulated_arm_mode_cache[emu.pc] = emu.read_thumb_bit()
+                last_emulated_thumb_bit_value = emulated_arm_mode_cache[emu.pc] = (
+                    emu.read_thumb_bit()
+                )
+
+        if not emu and last_emulated_thumb_bit_value is not None:
+            # The emulator may have been disabled, but while it was live we transitioned into Thumb mode.
+            # We propagate the Thumb mode through the remaining instructions we disassemble.
+            emulated_arm_mode_cache[target] = last_emulated_thumb_bit_value
 
         # Handle visual splits in the disasm view
         # We create splits in 3 conditions:
