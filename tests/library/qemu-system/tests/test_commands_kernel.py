@@ -48,6 +48,15 @@ def test_command_kdmesg():
     )
 
 
+def test_command_ktask():
+    if not pwndbg.aglib.kernel.has_debug_syms():
+        res = gdb.execute("ktask", to_string=True)
+        assert "may only be run when debugging a Linux kernel with debug" in res
+        return
+    res = gdb.execute("ktask", to_string=True)
+    assert "Address" in res
+
+
 def test_command_kversion():
     res = gdb.execute("kversion", to_string=True)
     assert "Linux version" in res
