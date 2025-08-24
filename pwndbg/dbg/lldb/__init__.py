@@ -889,8 +889,13 @@ class LLDBProcess(pwndbg.dbg_mod.Process):
 
     @override
     def vmmap(self) -> pwndbg.dbg_mod.MemoryMap:
+        from pwndbg.aglib.commpage import get_commpage_mappings
+
         pages = self.get_known_pages()
         if pages:
+            pages.extend(get_commpage_mappings())
+            pages.sort()
+
             return LLDBMemoryMap(pages)
 
         from pwndbg.aglib.kernel.vmmap import kernel_vmmap
