@@ -157,7 +157,6 @@ enum pageflags {
 	PG_unevictable,		/* Page is "unevictable"  */
 	PG_dropbehind,		/* drop pages on IO completion */
 };
-
 """
 
 
@@ -272,17 +271,24 @@ class ArchSymbols:
             if pwndbg.aglib.kernel.krelease() >= (5, 10)
             else "dma_buf_release"
         )
+        self.bpf_prog_heuristic_func = "bpf_prog_free_id"
+        self.bpf_map_heuristic_func = "bpf_map_free_id"
 
-    def disass(self, name):
+    def disass(self, name, lines=None):
         sym = pwndbg.aglib.symbol.lookup_symbol(name)
         if sym is None:
             return None
-        disass = "\n".join(pwndbg.aglib.nearpc.nearpc(int(sym)))
+        disass = "\n".join(pwndbg.aglib.nearpc.nearpc(int(sym), lines=lines))
         return pwndbg.color.strip(disass)
 
-    def regex(self, s, pattern):
+    def regex(self, s, pattern, nth):
         pattern = re.compile(pattern)
-        return pattern.search(s)
+        if nth == 0:
+            return pattern.search(s)
+        matches = list(pattern.finditer(s))
+        if nth < len(matches):
+            return matches[nth]
+        return None
 
     def node_data(self):
         node_data = pwndbg.aglib.symbol.lookup_symbol("node_data")
@@ -331,6 +337,22 @@ class ArchSymbols:
             db_list = self._db_list()
         return pwndbg.aglib.memory.get_typed_pointer("struct list_head", db_list)
 
+    def map_idr(self):
+        map_idr = pwndbg.aglib.symbol.lookup_symbol("map_idr")
+        if map_idr:
+            return map_idr
+        if pwndbg.aglib.kernel.has_debug_symbols(self.bpf_map_heuristic_func):
+            map_idr = self._map_idr()
+        return pwndbg.aglib.memory.get_typed_pointer("unsigned long", map_idr)
+
+    def prog_idr(self):
+        prog_idr = pwndbg.aglib.symbol.lookup_symbol("prog_idr")
+        if prog_idr:
+            return prog_idr
+        if pwndbg.aglib.kernel.has_debug_symbols(self.bpf_prog_heuristic_func):
+            prog_idr = self._prog_idr()
+        return pwndbg.aglib.memory.get_typed_pointer("unsigned long", prog_idr)
+
     def _node_data(self):
         raise NotImplementedError()
 
@@ -346,13 +368,19 @@ class ArchSymbols:
     def _db_list(self):
         raise NotImplementedError()
 
+    def _map_idr(self):
+        raise NotImplementedError()
+
+    def _prog_idr(self):
+        raise NotImplementedError()
+
 
 class x86_64Symbols(ArchSymbols):
     # mov reg, [... - 0x...]
     # the ``-0x...` is a kernel address displayed as a negative number
     # returns the first 0x... as an int if exists
-    def dword_mov_reg_memoff(self, disass):
-        result = self.regex(disass, r".*?\bmov.*\[.*-.*(0x[0-9a-f]+)\]")
+    def dword_mov_reg_memoff(self, disass, nth=0):
+        result = self.regex(disass, r".*?\bmov.*\[.*-.*(0x[0-9a-f]+)\]", nth)
         if result is not None:
             return (1 << 64) - int(result.group(1), 16)
         return None
@@ -360,23 +388,24 @@ class x86_64Symbols(ArchSymbols):
     # add reg, [... - 0x...]
     # the `-0x...`` is a kernel address displayed as a negative number
     # returns the first 0x... as an int if exists
-    def dword_add_reg_memoff(self, disass):
-        result = self.regex(disass, r".*?\badd.*\[.*-.*(0x[0-9a-f]+)\]")
+    def dword_add_reg_memoff(self, disass, nth=0):
+        result = self.regex(disass, r".*?\badd.*\[.*-.*(0x[0-9a-f]+)\]", nth)
         if result is not None:
             return (1 << 64) - int(result.group(1), 16)
         return None
 
     # mov reg, <kernel address as a constant>
-    def qword_mov_reg_const(self, disass):
-        result = self.regex(disass, r".*?\bmov.*(0x[0-9a-f]{16})")
+    def qword_mov_reg_const(self, disass, nth=0):
+        result = self.regex(disass, r".*?\bmov.*(0x[0-9a-f]{16})", nth)
         if result is not None:
             return int(result.group(1), 16)
         return None
 
-    def qword_mov_reg_ripoff(self, disass):
+    def qword_mov_reg_ripoff(self, disass, nth=0):
         result = self.regex(
             "".join(disass.splitlines()),
             r".*?\bmov.*\[rip\s\+\s(0x[0-9a-f]+)\].*?(0x[0-9a-f]{16})\s\<",
+            nth,
         )
         if result is not None:
             return int(result.group(1), 16) + int(result.group(2), 16)
@@ -415,22 +444,37 @@ class x86_64Symbols(ArchSymbols):
             return result - offset
         return None
 
+    def _map_idr(self):
+        disass = self.disass(self.bpf_map_heuristic_func, lines=50)
+        result = self.qword_mov_reg_const(disass, nth=1)
+        if result is not None:
+            return result
+        return self.qword_mov_reg_const(disass)
+
+    def _prog_idr(self):
+        disass = self.disass(self.bpf_prog_heuristic_func, lines=50)
+        result = self.qword_mov_reg_const(disass, nth=1)
+        if result is not None:
+            return result
+        return self.qword_mov_reg_const(disass)
+
 
 class Aarch64Symbols(ArchSymbols):
     # adrp x?, <kernel address>
     # add x?, x?, #0x...
-    def qword_adrp_add_const(self, disass):
+    def qword_adrp_add_const(self, disass, nth=0):
         prev = ""
         for line in disass.splitlines():
             if "adrp" in prev and "add" in line:
-                result = self.regex(prev, r"\,\s*0x([0-9a-f]+)")
-                if result is None:
-                    return None
-                tmp = int(result.group(1), 16)
-                result = self.regex(line, r"#0x([0-9a-f]+)")
-                if result is None:
-                    return None
-                return tmp + int(result.group(1), 16)
+                result = self.regex(prev, r"\,\s*0x([0-9a-f]+)", nth=0)
+                tmp = None
+                if result is not None:
+                    tmp = int(result.group(1), 16)
+                result = self.regex(line, r"#0x([0-9a-f]+)", nth=0)
+                if result is not None and tmp is not None:
+                    if nth == 0:
+                        return tmp + int(result.group(1), 16)
+                    nth -= 1
             prev = line
         return None
 
@@ -488,3 +532,17 @@ class Aarch64Symbols(ArchSymbols):
         if result is not None:
             return result - offset
         return None
+
+    def _map_idr(self):
+        disass = self.disass(self.bpf_map_heuristic_func, lines=50)
+        result = self.qword_adrp_add_const(disass, nth=1)
+        if result is not None:
+            return result
+        return self.qword_adrp_add_const(disass)
+
+    def _prog_idr(self):
+        disass = self.disass(self.bpf_prog_heuristic_func, lines=50)
+        result = self.qword_adrp_add_const(disass, nth=1)
+        if result is not None:
+            return result
+        return self.qword_adrp_add_const(disass)
