@@ -1337,7 +1337,7 @@ def try_free(addr: str | int) -> None:
         and "key" in allocator.tcache_entry.keys()
     ):
         tc_idx = (chunk_size_unmasked - chunk_minsize + malloc_alignment - 1) // malloc_alignment
-        if allocator.mp is not None and tc_idx < int(allocator.mp["tcache_bins"]):
+        if allocator.mp is not None and tc_idx < allocator.tcache_small_bins:
             print(message.notice("Tcache checks"))
             e = addr + 2 * size_sz
             e += allocator.tcache_entry.keys().index("key") * ptr_size
@@ -1354,7 +1354,12 @@ def try_free(addr: str | int) -> None:
 
             # May be an array, and tc_idx may be negative, so always cast to a
             # pointer before we index into it.
-            counts = allocator.get_tcache()["counts"]
+            # counts was renamed to num_slots in newer version of GLIBC 2.42
+            tcache = allocator.get_tcache()
+            try:
+                counts = tcache["num_slots"]
+            except Exception:
+                counts = tcache["counts"]
             if int(counts.address.cast(counts.type.target().pointer())[tc_idx]) < int(
                 allocator.mp["tcache_count"]
             ):
