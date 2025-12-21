@@ -31,7 +31,6 @@ import pwndbg
 import pwndbg.color.message as M
 import pwndbg.dbg_mod
 import pwndbg.lib.memory
-from pwndbg.aglib import load_aglib
 from pwndbg.dbg_mod import EventHandlerPriority
 from pwndbg.dbg_mod import selection
 from pwndbg.lib.arch import ArchDefinition
@@ -889,6 +888,8 @@ class LLDBProcess(pwndbg.dbg_mod.Process):
         return LLDBValue(value, self)
 
     def get_known_pages(self) -> List[pwndbg.lib.memory.Page]:
+        import pwndbg.aglib
+
         regions = self.process.GetMemoryRegions()
 
         pages = []
@@ -951,6 +952,7 @@ class LLDBProcess(pwndbg.dbg_mod.Process):
                     size=region.GetRegionEnd() - region.GetRegionBase(),
                     flags=perms,
                     offset=offset,
+                    arch_ptrsize=pwndbg.aglib.arch.ptrsize,
                     objfile=objfile,
                 )
             )
@@ -960,6 +962,9 @@ class LLDBProcess(pwndbg.dbg_mod.Process):
     def _process_vmmap_pages(
         self, pages: List[pwndbg.lib.memory.Page]
     ) -> List[pwndbg.lib.memory.Page]:
+        import pwndbg.aglib
+        import pwndbg.lib.memory
+
         # Do a final, coalescing pass, for identical ranges that are sequential
         # and contiguous to each other in the virtual address space, and join
         # them into a single range.
@@ -969,6 +974,7 @@ class LLDBProcess(pwndbg.dbg_mod.Process):
         # identical. This seems to happen because LLDB internally distinguishes
         # between different Mach-O sections. That information, however, is not
         # made reliably available to us.
+        ptrsize: int = pwndbg.aglib.arch.ptrsize
         final_pages: List[pwndbg.lib.memory.Page] = []
         start = None
         end = None
@@ -993,6 +999,7 @@ class LLDBProcess(pwndbg.dbg_mod.Process):
                         target.end - start.start,
                         start.flags,
                         start.offset,
+                        ptrsize,
                         start.objfile,
                         start.in_darwin_shared_cache,
                     )
@@ -2007,6 +2014,8 @@ class LLDB(pwndbg.dbg_mod.Debugger):
         self.debugger = debugger
 
         self.debug = kwargs["debug"] if "debug" in kwargs else False
+
+        from pwndbg.aglib import load_aglib
 
         load_aglib()
 

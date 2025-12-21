@@ -20,7 +20,6 @@ from typing import TypedDict
 from typing import TypeVar
 
 import pwndbg.lib.memory
-from pwndbg.lib.arch import PWNDBG_SUPPORTED_ARCHITECTURES_TYPE
 from pwndbg.lib.arch import ArchDefinition
 
 dbg: Debugger = None
@@ -1130,6 +1129,9 @@ class EventHandlerPriority(Enum):
     CACHE_CLEAR = 0
     """The first thing we want to do is clear the cache, so we aren't working on stale
     data."""
+    UPDATE_ARCH_AND_TYPEINFO = 10
+    """We need to initialize the architecture and type information before doing anything
+    else substantial."""
     STANDARD = 100
     """The default value."""
 

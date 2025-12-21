@@ -82,6 +82,7 @@ class PageTableScan:
         pagesz = self.pagesz
         addr = entry & self.PAGE_ENTRY_MASK
         entries = self.cache.get(addr, None)
+        ptrsize: int = pwndbg.aglib.arch.ptrsize
         if not entries:
             self.cache[addr] = entries = struct.unpack(self.fmt, self.inf.read_memory(addr, pagesz))
         for i, entry in enumerate(entries):
@@ -126,7 +127,7 @@ class PageTableScan:
                     addr <<= self.PAGE_INDEX_LEN
                     addr += 0 if i < level_remaining else self.level_idxes[i]
                 addr <<= self.page_shift
-                self.curr = Page(addr, size, flags, 0)
+                self.curr = Page(addr, size, flags, ptrsize, 0)
             else:  # only call when should keep scanning the page tree
                 self.level_idxes[level_remaining] = i
                 # we need to reduce this recursive call as much as possible

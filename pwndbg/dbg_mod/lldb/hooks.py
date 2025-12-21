@@ -13,23 +13,30 @@ import pwndbg.aglib.strings
 import pwndbg.aglib.typeinfo
 import pwndbg.dbg_mod
 import pwndbg.lib.cache
+import pwndbg.lib.ctypes
 from pwndbg.dbg_mod import EventHandlerPriority
 from pwndbg.dbg_mod import EventType
 from pwndbg.dbg_mod.lldb import LLDB
 from pwndbg.lib.cache import CacheUntilEvent
 
 
-@pwndbg.dbg.event_handler(EventType.NEW_MODULE)
-@pwndbg.dbg.event_handler(EventType.START)
-@pwndbg.dbg.event_handler(EventType.STOP)
+@pwndbg.dbg.event_handler(EventType.NEW_MODULE, EventHandlerPriority.UPDATE_ARCH_AND_TYPEINFO)
+@pwndbg.dbg.event_handler(EventType.START, EventHandlerPriority.UPDATE_ARCH_AND_TYPEINFO)
+@pwndbg.dbg.event_handler(EventType.STOP, EventHandlerPriority.UPDATE_ARCH_AND_TYPEINFO)
 def update_typeinfo() -> None:
-    pwndbg.aglib.typeinfo.update()
     pwndbg.aglib.arch_mod.update()
+    pwndbg.aglib.typeinfo.update()
 
 
 @pwndbg.dbg.event_handler(EventType.NEW_MODULE)
 def reset_config() -> None:
     pwndbg.aglib.kernel._kconfig = None
+
+
+@pwndbg.dbg.event_handler(EventType.START)
+@pwndbg.dbg.event_handler(EventType.NEW_MODULE)
+def update_ctypes() -> None:
+    pwndbg.lib.ctypes.update(str(pwndbg.aglib.arch.endian))
 
 
 @pwndbg.dbg.event_handler(EventType.START)

@@ -55,7 +55,7 @@ parser.add_argument(
 def piebase(offset: int = 0, module: str = "") -> None:
     offset = int(offset)
     if not module:
-        module = pwndbg.aglib.proc.exe
+        module = pwndbg.aglib.proc.exe()
 
     addr = translate_addr(offset, module)
 
@@ -82,7 +82,7 @@ if pwndbg.dbg.is_gdblib_available():
     def breakrva(offset: int = 0, module: str = "") -> None:
         offset = int(offset)
         if not module:
-            module = pwndbg.aglib.proc.exe
+            module = pwndbg.aglib.proc.exe()
 
         addr = translate_addr(offset, module)
 

@@ -8,28 +8,24 @@ from __future__ import annotations
 
 import argparse
 import functools
-import inspect
-import io
 import logging
 from enum import Enum
 from typing import Any
 from typing import Callable
 from typing import Dict
 from typing import List
-from typing import Literal
 from typing import Optional
 from typing import Set
-from typing import Tuple
 from typing import TypeVar
 
 from typing_extensions import ParamSpec
 from typing_extensions import override
 
+import pwndbg.aglib
 import pwndbg.aglib.heap
 import pwndbg.aglib.kernel
 import pwndbg.aglib.proc
 import pwndbg.aglib.qemu
-import pwndbg.aglib.regs
 import pwndbg.color.message as message
 import pwndbg.exception
 from pwndbg.aglib.heap.ptmalloc import DebugSymsHeap
@@ -607,7 +603,7 @@ def OnlyWhenLocal(function: Callable[P, T]) -> Callable[P, Optional[T]]:
 def OnlyWithFile(function: Callable[P, T]) -> Callable[P, Optional[T]]:
     @functools.wraps(function)
     def _OnlyWithFile(*a: P.args, **kw: P.kwargs) -> Optional[T]:
-        if pwndbg.aglib.proc.exe:
+        if pwndbg.aglib.proc.exe():
             return function(*a, **kw)
         else:
             if pwndbg.aglib.qemu.is_qemu():
@@ -696,7 +692,7 @@ def OnlyWhenRunning(function: Callable[P, T]) -> Callable[P, Optional[T]]:
     @functools.wraps(function)
     def _OnlyWhenRunning(*a: P.args, **kw: P.kwargs) -> Optional[T]:
         # TODO: Properly support OnlyWhenRunning without `gdblib`.
-        if pwndbg.aglib.proc.alive:
+        if pwndbg.aglib.proc.alive():
             return function(*a, **kw)
         else:
             log.error(f"{func_name(function)}: The program is not being run.")
