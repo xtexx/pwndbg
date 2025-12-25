@@ -20,6 +20,7 @@ from typing import Generator
 from typing import Iterator
 from typing import List
 from typing import Literal
+from typing import Optional
 from typing import Sequence
 from typing import Tuple
 from typing import TypeVar
@@ -266,6 +267,18 @@ class LLDBFrame(pwndbg.dbg_mod.Frame):
     @override
     def sp(self) -> int:
         return self.inner.GetSP()
+
+    @override
+    def start(self) -> Optional[int]:
+        import pwndbg.aglib
+
+        # https://lldb.llvm.org/python_api/lldb.SBFrame.html#lldb.SBFrame.GetCFA
+        val = self.inner.GetCFA()
+        if val == lldb.LLDB_INVALID_ADDRESS:
+            return None
+        # For some reason returns +8 on top of retaddr, just like GDB.
+        # I guess the DWARF just looks like that?
+        return val - pwndbg.aglib.arch.ptrsize
 
     @override
     def parent(self) -> pwndbg.dbg_mod.Frame | None:
@@ -2021,6 +2034,7 @@ class LLDB(pwndbg.dbg_mod.Debugger):
 
         # Load all of our commands.
         import pwndbg.commands
+        import pwndbg.commands.comments
 
         pwndbg.commands.load_commands()
 
@@ -2198,7 +2212,7 @@ class LLDB(pwndbg.dbg_mod.Debugger):
         frame, if any is selected, and always picking the lowest frame on the
         stack otherwise.
         """
-        thread: LLDBThread = self.selected_thread()
+        thread: Optional[LLDBThread] = self.selected_thread()
         if thread is None:
             return None
 
@@ -2384,3 +2398,25 @@ class LLDB(pwndbg.dbg_mod.Debugger):
     @override
     def set_python_diagnostics(self, enabled: bool) -> None:
         pass
+
+    @override
+    def set_convenience_var(self, name: str, value: str, type: Optional[str]) -> None:
+        """
+        Set a convenience variable which will be accessible with $name in the
+        debugger.
+
+        Read the docstring in pwndbg.dbg.set_convenience_var()!!
+
+        Surround this function with try/except.
+        """
+        # The `type` parameter is unused, we coerce void* in LLDB.
+        try:
+            # https://stackoverflow.com/questions/11192511/does-lldb-have-convenience-variables-var
+            self._execute_lldb_command(f"expr void* ${name} = ((void*)({value}))")
+        except pwndbg.dbg_mod.Error as e:
+            if "redefinition" in str(e).lower():
+                # The variable is already defined with a set type, we can try to set the value
+                # anyway and hope for the best. The brackets are important.
+                self._execute_lldb_command(f"expr ${name} = ((void*){value})")
+            else:
+                raise e
