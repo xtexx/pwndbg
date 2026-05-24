@@ -26,11 +26,13 @@ import pwndbg.aglib.nearpc
 import pwndbg.aglib.qemu
 import pwndbg.aglib.signal
 import pwndbg.aglib.symbol
+import pwndbg.aglib.vmmap
 import pwndbg.arguments
 import pwndbg.chain
 import pwndbg.color
 import pwndbg.color.context as ctx_color
 import pwndbg.color.memory as mem_color
+import pwndbg.color.message as message
 import pwndbg.color.syntax_highlight as H
 import pwndbg.commands
 import pwndbg.commands.telescope
@@ -43,7 +45,6 @@ import pwndbg.ui
 from pwndbg.aglib.arch_mod import get_thumb_mode_string
 from pwndbg.color import ColorConfig
 from pwndbg.color import ColorParamSpec
-from pwndbg.color import message
 from pwndbg.color import theme
 from pwndbg.commands import CommandCategory
 from pwndbg.dbg_mod import EventHandlerPriority
@@ -753,15 +754,21 @@ def context(
     elif len(args) == 0:
         args = config_context_sections.split()
 
+    cache_status = pwndbg.aglib.vmmap.cache_status_text()
+    cache_suffix = message.hint(f" [{cache_status}]") if cache_status is not None else ""
+
     sections: list[tuple[str, Callable[..., list[str]] | None]] = []
     if args:
         if selected_history_index is None:
-            sections.append(("legend", lambda *args, **kwargs: [mem_color.legend()]))
+            sections.append(("legend", lambda *args, **kwargs: [mem_color.legend() + cache_suffix]))
         else:
             longest_history = max(len(h) for h in context_history.values())
             history_status = f" (history {selected_history_index + 1}/{longest_history})"
             sections.append(
-                ("legend", lambda *args, **kwargs: [mem_color.legend() + history_status])
+                (
+                    "legend",
+                    lambda *args, **kwargs: [mem_color.legend() + history_status + cache_suffix],
+                )
             )
 
     sections += [(arg, context_sections.get(arg[0], None)) for arg in args]
