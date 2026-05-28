@@ -771,7 +771,7 @@ def context(
                 )
             )
 
-    sections += [(arg, context_sections.get(arg[0], None)) for arg in args]
+    sections += [(arg, context_sections.get(arg[0])) for arg in args]
 
     result: defaultdict[OutputWrapper, list[str]] = defaultdict(list)
     result_settings: defaultdict[OutputWrapper, dict[str, Any]] = defaultdict(dict)
@@ -1383,7 +1383,7 @@ def context_disasm(
         lambda: pwndbg.aglib.nearpc.nearpc(
             back_lines=additional_disasm_lines // 2,
             total_lines=additional_disasm_lines + 1,
-            emulate=bool(not pwndbg.config.emulate == "off"),
+            emulate=pwndbg.config.emulate != "off",
             use_cache=True,
         )
     )
